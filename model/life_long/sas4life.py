@@ -3,15 +3,16 @@ import torch.nn.functional as F
 import torch
 import math
 
+
 class Attention(nn.Module):
     """
     Compute 'Scaled Dot Product Attention
     """
 
     def forward(self, query, key, value, mask=None, dropout=None):
-        scores = torch.matmul(query, key.transpose(-2, -1)) \
-                 / math.sqrt(query.size(-1))
-
+        # query,key,value:size=(batch_size, heads, maxlen, d_k)
+        scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(query.size(-1))
+        # scores.size=(batch_size, heads, maxlen, maxlen)
         if mask is not None:
             scores = scores.masked_fill(mask == 0, -1e9)
 
@@ -20,7 +21,9 @@ class Attention(nn.Module):
         if dropout is not None:
             p_attn = dropout(p_attn)
 
+        # (batch_size, heads, maxlen, d_v)
         return torch.matmul(p_attn, value), p_attn
+
 
 class GELU(nn.Module):
     """
@@ -28,7 +31,10 @@ class GELU(nn.Module):
     """
 
     def forward(self, x):
-        return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
+        return (
+            0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
+        )
+
 
 class PositionwiseFeedForward(nn.Module):
     "Implements FFN equation."
@@ -42,6 +48,7 @@ class PositionwiseFeedForward(nn.Module):
 
     def forward(self, x):
         return self.w_2(self.dropout(self.activation(self.w_1(x))))
+
 
 class SublayerConnection(nn.Module):
     """
@@ -59,7 +66,6 @@ class SublayerConnection(nn.Module):
         return x + self.dropout(sublayer(self.norm(x)))
 
 
-
 class MultiHeadedAttention(nn.Module):
     """
     Take in model size and number of heads.
@@ -70,10 +76,12 @@ class MultiHeadedAttention(nn.Module):
         assert d_model % h == 0
 
         # We assume d_v always equals d_k
-        self.d_k = d_model // h
+        self.d_k = d_model // h  # d_model；embedding size, d_k:计算key值矩阵的维度
         self.h = h
 
-        self.linear_layers = nn.ModuleList([nn.Linear(d_model, d_model) for _ in range(3)])
+        self.linear_layers = nn.ModuleList(
+            [nn.Linear(d_model, d_model) for _ in range(3)]
+        )
         self.output_linear = nn.Linear(d_model, d_model)
         self.attention = Attention()
 
@@ -83,10 +91,13 @@ class MultiHeadedAttention(nn.Module):
         batch_size = query.size(0)
 
         # 1) Do all the linear projections in batch from d_model => h x d_k
-        query, key, value = [l(x).view(batch_size, -1, self.h, self.d_k).transpose(1, 2)
-                             for l, x in zip(self.linear_layers, (query, key, value))]
+        query, key, value = [
+            l(x).view(batch_size, -1, self.h, self.d_k).transpose(1, 2)
+            for l, x in zip(self.linear_layers, (query, key, value))
+        ]
 
         # 2) Apply attention on all the projected vectors in batch.
+        # x.size=(batch_size, heads, maxlen, d_v)
         x, attn = self.attention(query, key, value, mask=mask, dropout=self.dropout)
 
         # 3) "Concat" using a view and apply a final linear.
@@ -94,8 +105,8 @@ class MultiHeadedAttention(nn.Module):
 
         return self.output_linear(x)
 
-class PositionalEmbedding(nn.Module):
 
+class PositionalEmbedding(nn.Module):
     def __init__(self, max_len, d_model):
         super().__init__()
 
@@ -106,9 +117,11 @@ class PositionalEmbedding(nn.Module):
         batch_size = x.size(0)
         return self.pe.weight.unsqueeze(0).repeat(batch_size, 1, 1)
 
+
 class TokenEmbedding(nn.Embedding):
     def __init__(self, vocab_size, embed_size=512):
         super().__init__(vocab_size, embed_size, padding_idx=0)
+
 
 class BERTEmbedding(nn.Module):
     """
@@ -134,8 +147,11 @@ class BERTEmbedding(nn.Module):
         self.embed_size = embed_size
 
     def forward(self, sequence):
-        x = self.token(sequence) + self.position(sequence)  # + self.segment(segment_label)
+        x = self.token(sequence) + self.position(
+            sequence
+        )  # + self.segment(segment_label)
         return self.dropout(x)
+
 
 class TransformerBlock(nn.Module):
     """
@@ -152,14 +168,20 @@ class TransformerBlock(nn.Module):
         """
 
         super().__init__()
-        self.attention = MultiHeadedAttention(h=attn_heads, d_model=hidden, dropout=dropout)
-        self.feed_forward = PositionwiseFeedForward(d_model=hidden, d_ff=feed_forward_hidden, dropout=dropout)
+        self.attention = MultiHeadedAttention(
+            h=attn_heads, d_model=hidden, dropout=dropout
+        )
+        self.feed_forward = PositionwiseFeedForward(
+            d_model=hidden, d_ff=feed_forward_hidden, dropout=dropout
+        )
         self.input_sublayer = SublayerConnection(size=hidden, dropout=dropout)
         self.output_sublayer = SublayerConnection(size=hidden, dropout=dropout)
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, x, mask):
-        x = self.input_sublayer(x, lambda _x: self.attention.forward(_x, _x, _x, mask=mask))
+        x = self.input_sublayer(
+            x, lambda _x: self.attention.forward(_x, _x, _x, mask=mask)
+        )
         x = self.output_sublayer(x, self.feed_forward)
         return self.dropout(x)
 
@@ -176,11 +198,20 @@ class BERT(nn.Module):
         dropout = args.dropout
 
         # embedding for BERT, sum of positional, segment, token embeddings
-        self.embedding = BERTEmbedding(vocab_size=vocab_size, embed_size=self.hidden, max_len=max_len, dropout=dropout)
+        self.embedding = BERTEmbedding(
+            vocab_size=vocab_size,
+            embed_size=self.hidden,
+            max_len=max_len,
+            dropout=dropout,
+        )
 
         # multi-layers transformer blocks, deep network
         self.transformer_blocks = nn.ModuleList(
-            [TransformerBlock(self.hidden, heads, self.hidden * 4, dropout) for _ in range(n_layers)])
+            [
+                TransformerBlock(self.hidden, heads, self.hidden * 4, dropout)
+                for _ in range(n_layers)
+            ]
+        )
 
     def forward(self, x):
         mask = (x > 0).unsqueeze(1).repeat(1, x.size(1), 1).unsqueeze(1)
@@ -196,6 +227,7 @@ class BERT(nn.Module):
 
     def init_weights(self):
         pass
+
 
 class SAS4Life(nn.Module):
     def __init__(self, args):
