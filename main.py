@@ -13,15 +13,15 @@ from model.sequence_model.bert4rec import BERTModel
 from model.sequence_model.sasrec import SASRec
 from model.sequence_model.nextitnet import NextItNet
 from model.sequence_model.gru4rec import GRU4Rec
-from model.ctr.deepfm import DeepFM
-from model.ctr.xdeepfm import xDeepFM
-from model.ctr.nfm import NFM
-from model.ctr.wdl import WDL
-from model.ctr.afm import AFM
-from model.ctr.dcn import DCN
-from model.ctr.dcnmix import DCNMix
-from model.ctr.dien import DIEN
-from model.ctr.din import DIN
+# from model.ctr.deepfm import DeepFM
+# from model.ctr.xdeepfm import xDeepFM
+# from model.ctr.nfm import NFM
+# from model.ctr.wdl import WDL
+# from model.ctr.afm import AFM
+# from model.ctr.dcn import DCN
+# from model.ctr.dcnmix import DCNMix
+# from model.ctr.dien import DIEN
+# from model.ctr.din import DIN
 from model.transfer_learning.peterrec import PeterRec
 from model.mtl.esmm import ESMM
 from model.mtl.mmoe import MMOE
@@ -47,7 +47,7 @@ from model.cf.ngcf import NGCF
 # from model.cf.vae import VAECF
 # from model.cf.item2vec import Item2Vec
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '6'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 
 def select_sampler(train_data, val_data, test_data, user_count, item_count, args):
     if args.sample == 'random':
@@ -338,7 +338,7 @@ def set_seed(seed, re=True):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=20)
     parser.add_argument('--task_name', default='')
     parser.add_argument('--task_num', type=int, default=4)
     parser.add_argument('--dataset_path', type=str, default='')
@@ -364,7 +364,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--lr', type=float, default=0.0005)
 
-    parser.add_argument('--device', default='cuda')  # cuda:0
+    parser.add_argument('--device', default='cuda:0')  # cuda:0
     parser.add_argument('--is_parallel', type=bool, default=False)
     parser.add_argument('--local_rank', type=int)
     parser.add_argument('--num_gpu', type=int, default=1)
@@ -391,7 +391,7 @@ if __name__ == "__main__":
     parser.add_argument('--factor_num', type=int, default=128)
     #Nextitnet
     parser.add_argument('--embedding_size', type=int, default=128, help='embedding_size for model')
-    parser.add_argument('--dilations', type=int, default=[1, 4], help='Number of transformer layers')
+    parser.add_argument('--dilations', type=list, default=[1, 4], help='Number of transformer layers')
     parser.add_argument('--kernel_size', type=int, default=3, help='Number of heads for multi-attention')
     parser.add_argument('--is_mp', type=bool, default=False, help='Number of heads for multi-attention')
     parser.add_argument('--pad_token', type=int, default=0)
@@ -702,11 +702,11 @@ if __name__ == "__main__":
         retrain_task1 = True
         for i in range(0, args.task_num):
             args.task = i
-            args.source_path = '/data/task_0_new.csv'
+            args.source_path = '../data/task_0.csv'
             if i > 0:
-                args.target_path = '/data/task_{}_new.csv'.format(i)
+                args.target_path = '../data/task_{}.csv'.format(i)
             else:
-                args.dataset_path = '/data/task_0_new.csv'
+                args.dataset_path = '../data/task_0.csv'
             train_loader1, val_loader1, test_loader1, source_num, target_num = get_data(args)
             args.task1_out = source_num
             if i == 1:

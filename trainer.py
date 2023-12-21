@@ -7,6 +7,7 @@ import torch.nn.utils.prune as prune
 import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score
 from metrics import *
+from tqdm import tqdm
 
 def mtlTrain(model, train_loader, val_loader, test_loader, args, train=True):
     device = args.device
@@ -443,7 +444,7 @@ def SequenceTrainer(epoch, model, dataloader, optimizer, writer, args): #schedul
     model.train()
     running_loss = 0
     loss_fn = nn.CrossEntropyLoss(ignore_index=0)
-    for data in dataloader:
+    for data in tqdm(dataloader):
         optimizer.zero_grad()
         data = [x.to(args.device) for x in data]
         seqs, labels = data
